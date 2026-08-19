@@ -1,11 +1,15 @@
-# ViaGuardian Intelligence Center
+# ViaGuardian Intelligence Center 🏆
 
-> Plataforma preditiva de segurança viária para motociclistas — Prêmio Senatran 2026.
+> **Plataforma preditiva de segurança viária colaborativa para motociclistas.**
+> Desenvolvido submetido à categoria de **Projeto Acadêmico** do **Prêmio Senatran 2026**.
 
-O ViaGuardian é um ecossistema de **quatro camadas** que coleta dados de anomalias viárias em
-tempo real via sensores de borda (smartphone do motociclista e câmeras CFTV públicas), processa e
-deduplica espacialmente no backend e os exibe num painel de inteligência operacional para tomada de
-decisão pelo operador do CCO.
+## 🎯 Sobre o Projeto (Prêmio Senatran 2026)
+
+Este projeto nasce da necessidade urgente de reduzir a sinistralidade envolvendo motociclistas nos centros urbanos, o grupo mais vulnerável no trânsito brasileiro. O **ViaGuardian** propõe uma abordagem preventiva e orientada a dados.
+
+* **O Porquê (Problema):** A zeladoria urbana muitas vezes atua de forma reativa e dependente de chamados manuais (ex: 156), deixando os motociclistas expostos a buracos, óleo na pista e sinalizações precárias por longos períodos, elevando os índices de acidentes severos.
+* **O Objetivo:** Criar um modelo de inteligência que antecipe áreas de risco e automatize a detecção de anomalias, garantindo que o Centro de Controle Operacional (CCO) direcione esforços de manutenção e alertas antes que os acidentes ocorram.
+* **O Como:** O ViaGuardian atua como um ecossistema colaborativo (crowdsensing) de **quatro camadas**.  Coleta dados anômalos em tempo real utilizando o smartphone do próprio motociclista (Edge AI) e integra-se a câmeras públicas CFTV. Esses dados são processados, validados e exibidos espacialmente em um **Painel de Inteligência Operacional** para uso da gestão pública e mitigação rápida de riscos.
 
 ---
 

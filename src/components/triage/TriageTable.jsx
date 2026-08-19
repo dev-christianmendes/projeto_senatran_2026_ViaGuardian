@@ -84,6 +84,44 @@ function DetailPanel({ item, onDecision, isUpdating }) {
         <StatusBadge status={item.status} />
       </div>
 
+      {/* ações (movidas para o topo) */}
+      {(item.status === 'Pendente' || item.status === 'PENDING' || item.status === 'pending') && (
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            disabled={isUpdating}
+            onClick={() => onDecision(item.id, 'approved')}
+            className="rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-[0_0_15px_rgba(16,185,129,0.5)] backdrop-blur-md transition-all hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(16,185,129,0.7)] border border-emerald-400/50 disabled:opacity-50 disabled:hover:scale-100"
+          >
+            ✓ Aprovar e Despachar O.S.
+          </button>
+          <button
+            type="button"
+            disabled={isUpdating}
+            onClick={() => onDecision(item.id, 'rejected')}
+            className="rounded-xl border border-rose-500/50 bg-rose-950/30 px-4 py-3 text-sm font-bold text-rose-300 shadow-lg transition-all hover:scale-[1.02] hover:border-rose-500 hover:bg-rose-900/40 disabled:opacity-50 disabled:hover:scale-100"
+          >
+            ✕ Rejeitar Falso Positivo
+          </button>
+        </div>
+      )}
+
+      {(item.status === 'Aprovado' || item.status === 'APPROVED' || item.status === 'approved') && (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-4 text-center shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+          <p className="text-sm font-medium text-emerald-400">
+            ✅ Ordem de Serviço Despachada para a Zeladoria (Integração SP156 simulada).
+          </p>
+        </div>
+      )}
+
+      {(item.status === 'Rejeitado' || item.status === 'REJECTED' || item.status === 'rejected') && (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-950/40 p-4 text-center shadow-[0_0_15px_rgba(244,63,94,0.15)]">
+          <p className="text-sm font-medium text-rose-400">
+            🚫 Incidente descartado e removido do cálculo de IRV.
+          </p>
+        </div>
+      )}
+
       {/* ── Localização Geográfica (referência visual) ── */}
       <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-3">
         <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500">Localização Geográfica</p>
@@ -222,47 +260,10 @@ function DetailPanel({ item, onDecision, isUpdating }) {
           </div>
         </div>
       </dl>
-
-      {/* ações premium */}
-      {(item.status === 'Pendente' || item.status === 'PENDING') && (
-        <div className="mt-auto grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            disabled={isUpdating}
-            onClick={() => onDecision(item.id, 'approved')}
-            className="rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-[0_0_15px_rgba(16,185,129,0.5)] backdrop-blur-md transition-all hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(16,185,129,0.7)] border border-emerald-400/50 disabled:opacity-50 disabled:hover:scale-100"
-          >
-            ✓ Aprovar e Despachar O.S.
-          </button>
-          <button
-            type="button"
-            disabled={isUpdating}
-            onClick={() => onDecision(item.id, 'rejected')}
-            className="rounded-xl border border-rose-500/50 bg-rose-950/30 px-4 py-3 text-sm font-bold text-rose-300 shadow-lg transition-all hover:scale-[1.02] hover:border-rose-500 hover:bg-rose-900/40 disabled:opacity-50 disabled:hover:scale-100"
-          >
-            ✕ Rejeitar Falso Positivo
-          </button>
-        </div>
-      )}
-
-      {(item.status === 'Aprovado' || item.status === 'approved') && (
-        <div className="mt-auto rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-4 text-center shadow-[0_0_15px_rgba(16,185,129,0.15)]">
-          <p className="text-sm font-medium text-emerald-400">
-            ✅ Ordem de Serviço Despachada para a Zeladoria (Integração SP156 simulada).
-          </p>
-        </div>
-      )}
-
-      {(item.status === 'Rejeitado' || item.status === 'rejected') && (
-        <div className="mt-auto rounded-xl border border-rose-500/30 bg-rose-950/40 p-4 text-center shadow-[0_0_15px_rgba(244,63,94,0.15)]">
-          <p className="text-sm font-medium text-rose-400">
-            🚫 Incidente descartado e removido do cálculo de IRV.
-          </p>
-        </div>
-      )}
     </div>
   )
 }
+
 
 export function TriageTable({ queue, onDecision, isUpdating }) {
   return <TriageTableInner queue={queue} onDecision={onDecision} isUpdating={isUpdating} />

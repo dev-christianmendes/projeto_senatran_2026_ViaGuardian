@@ -148,7 +148,7 @@ export function AiAgentWidget() {
     setTyping(false)
   }
 
-  return createPortal(
+  return (
     <>
       {/* ── Botão flutuante ───────────────────────────────────────────────── */}
       <button
@@ -403,7 +403,6 @@ export function AiAgentWidget() {
           </>
         )}
       </div>
-    </>,
-    document.body,
+    </>
   )
 }

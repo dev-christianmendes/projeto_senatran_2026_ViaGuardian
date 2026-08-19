@@ -13,7 +13,7 @@ function toCamelCase(obj) {
   if (Array.isArray(obj)) {
     return obj.map(item => toCamelCase(item))
   }
-  
+
   if (obj !== null && typeof obj === 'object') {
     return Object.entries(obj).reduce((acc, [key, value]) => {
       // Converte: event_timestamp_utc → eventTimestampUtc
@@ -22,7 +22,7 @@ function toCamelCase(obj) {
       return acc
     }, {})
   }
-  
+
   return obj
 }
 
@@ -43,7 +43,7 @@ const ANOMALY_CLASS_LABELS = {
  */
 function adaptIncidentForFrontend(incident) {
   const camelCased = toCamelCase(incident)
-  
+
   return {
     id: camelCased.id,
     category: ANOMALY_CLASS_LABELS[incident.anomaly_class] || incident.anomaly_class,
@@ -52,8 +52,8 @@ function adaptIncidentForFrontend(incident) {
     lon: camelCased.longitude,
     recurrence: camelCased.recurrenceCount || 1,
     irv: camelCased.irvScore,
-    status: camelCased.status === 'PENDING' ? 'Pendente' : 
-            camelCased.status === 'APPROVED' ? 'Aprovado' : 'Rejeitado',
+    status: camelCased.status === 'pending' ? 'Pendente' :
+      camelCased.status === 'approved' ? 'Aprovado' : 'Rejeitado',
     receivedAt: camelCased.eventTimestampUtc || new Date().toISOString(),
     // Campos opcionais para exibição
     location: `Lat: ${camelCased.latitude?.toFixed(4) || 'N/A'}, Lon: ${camelCased.longitude?.toFixed(4) || 'N/A'}`,

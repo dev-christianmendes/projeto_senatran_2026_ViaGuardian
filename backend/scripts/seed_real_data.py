@@ -131,7 +131,7 @@ def random_fingerprint() -> str:
     return hashlib.sha256(random.randbytes(32)).hexdigest()
 
 
-def random_timestamp(hours_back: int = 24) -> datetime:
+def random_timestamp(hours_back: int = 168) -> datetime:
     """Timestamp aleatório nas últimas N horas, com timezone UTC."""
     delta = timedelta(seconds=random.randint(0, hours_back * 3600))
     return datetime.now(timezone.utc) - delta
