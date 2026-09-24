@@ -4,6 +4,7 @@ import { ErrorBoundary } from '../components/layout/ErrorBoundary'
 import { CctvPage } from '../pages/CctvPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { LoginPage } from '../pages/LoginPage'
+import { MobileDemoPage } from '../pages/MobileDemoPage'
 import { TriagePage } from '../pages/TriagePage'
 
 export const router = createBrowserRouter([
@@ -27,6 +28,10 @@ export const router = createBrowserRouter([
       {
         path: 'cftv',
         element: <CctvPage />,
+      },
+      {
+        path: 'mobile',
+        element: <MobileDemoPage />,
       },
     ],
   },

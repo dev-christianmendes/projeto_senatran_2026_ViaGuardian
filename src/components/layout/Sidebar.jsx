@@ -4,6 +4,7 @@ const navItems = [
   { label: 'Painel de Controle CCO', to: '/' },
   { label: 'Triagem Operacional', to: '/triagem' },
   { label: 'CFTV', to: '/cftv' },
+  { label: 'App Mobile (Demo)', to: '/mobile' },
 ]
 
 function navLinkClass({ isActive }) {

@@ -1,4 +1,5 @@
 import { http } from '../lib/http'
+import { isDemoMode } from '../lib/demoMode'
 import { triageQueueMock } from '../mocks/mockData'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,6 +69,8 @@ function adaptIncidentForFrontend(incident) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getTriageQueue() {
+  if (isDemoMode) return triageQueueMock
+
   try {
     const response = await http.get('/triage/queue')
     // Adapta cada incidente: snake_case → camelCase + campos faltantes
@@ -78,6 +81,15 @@ export async function getTriageQueue() {
 }
 
 export async function updateIncidentStatus(id, status) {
+  if (isDemoMode) {
+    return {
+      id,
+      status,
+      updatedAt: new Date().toISOString(),
+      applied: true,
+    }
+  }
+
   try {
     const response = await http.patch(`/triage/incidents/${id}/status`, { status })
     return toCamelCase(response.data)

@@ -17,6 +17,10 @@ const headerByPath = {
     title: 'Monitoramento CFTV',
     subtitle: 'Acompanhamento de feeds com alertas de disponibilidade.',
   },
+  '/mobile': {
+    title: 'Emulação Mobile',
+    subtitle: 'Preview das telas do app React Native em frame de celular.',
+  },
 }
 
 function getDefaultDark() {

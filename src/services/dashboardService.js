@@ -1,4 +1,5 @@
 import { http } from '../lib/http'
+import { isDemoMode } from '../lib/demoMode'
 import {
   dashboardMetricsMock,
   heatmapPointsMock,
@@ -63,6 +64,14 @@ function gpsToSvgCoordinates(lat, lon) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getDashboardMetrics() {
+  if (isDemoMode) {
+    return {
+      ...dashboardMetricsMock,
+      incidentTrend: incidentTrendMock,
+      severityBreakdown: severityBreakdownMock,
+    }
+  }
+
   try {
     const response = await http.get('/dashboard/metrics')
     // Converte snake_case do Python para camelCase do JavaScript
@@ -77,6 +86,19 @@ export async function getDashboardMetrics() {
 }
 
 export async function getHeatmapData() {
+  if (isDemoMode) {
+    // Mocks de fallback com coordenadas reais de São Paulo
+    return [
+      { id: 1, lat: -23.5505, lon: -46.6333, x: 28, y: 36, intensity: 0.95, label: 'Centro' },
+      { id: 2, lat: -23.5617, lon: -46.6560, x: 54, y: 48, intensity: 0.78, label: 'Av. Paulista' },
+      { id: 3, lat: -23.5432, lon: -46.6425, x: 41, y: 30, intensity: 0.62, label: 'República' },
+      { id: 4, lat: -23.5268, lon: -46.6226, x: 18, y: 62, intensity: 0.85, label: 'Bom Retiro' },
+      { id: 5, lat: -23.5880, lon: -46.6360, x: 70, y: 70, intensity: 0.55, label: 'Vila Mariana' },
+      { id: 6, lat: -23.5506, lon: -46.5772, x: 78, y: 40, intensity: 0.7, label: 'Tatuapé' },
+      { id: 7, lat: -23.6521, lon: -46.7062, x: 35, y: 78, intensity: 0.45, label: 'Santo Amaro' },
+    ]
+  }
+
   try {
     const response = await http.get('/dashboard/heatmap')
     const points = response.data
