@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { ActiveDrivingDemo } from '../components/mobile/ActiveDrivingDemo'
 import {
   mobileBadgesMock,
   mobileClassMetaMock,
-  mobileDetectionsMock,
   mobileLevelsMock,
   mobileSessionMock,
 } from '../mocks/mobileMock'
@@ -25,78 +25,6 @@ function totalAlerts(counts) {
 
 function totalXp(counts) {
   return mobileClassMetaMock.reduce((acc, meta) => acc + (counts[meta.key] ?? 0) * meta.xpPerHit, 0)
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tela 1/2 — ActiveDriving (câmera AR com bounding boxes)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function DrivingScreen() {
-  const [detections, setDetections] = useState([])
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDetections(mobileDetectionsMock), 900)
-    return () => clearTimeout(timer)
-  }, [])
-
-  return (
-    <div className="relative flex h-full min-h-[560px] flex-col overflow-hidden bg-gray-900">
-      {/* Fake câmera / estrada */}
-      <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{
-          backgroundImage:
-            'linear-gradient(180deg, rgba(15,23,42,0.35) 0%, transparent 35%, transparent 65%, rgba(15,23,42,0.6) 100%), radial-gradient(ellipse at 50% 105%, #1e293b 0%, #0f172a 55%)',
-        }}
-      >
-        <div className="absolute inset-x-0 top-1/2 h-px bg-gray-200/5" />
-        <div className="absolute left-1/2 top-0 h-full w-1.5 -translate-x-1/2 bg-gray-100/10" />
-      </div>
-
-      {/* HUD topo: telemetria reduzida */}
-      <div className="absolute inset-x-0 top-0 flex gap-2 p-3">
-        <span className="flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1 text-[11px] font-medium text-white backdrop-blur">
-          <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-          IA Ativa
-        </span>
-        <span className="flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1 text-[11px] font-medium text-white backdrop-blur">
-          <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-          GPS
-        </span>
-      </div>
-
-      {/* Bounding boxes das detecções */}
-      {detections.map((det) => (
-        <div
-          key={det.id}
-          className="absolute rounded-md border-2"
-          style={{
-            top: det.top,
-            left: det.left,
-            width: `${det.width}%`,
-            height: `${det.height}%`,
-            borderColor: det.color,
-            backgroundColor: det.bgColor,
-          }}
-        >
-          <span
-            className="absolute left-0 top-0 -translate-y-full rounded-t-md px-2 py-0.5 text-[10px] font-semibold"
-            style={{ backgroundColor: det.color, color: '#000' }}
-          >
-            {det.label}
-          </span>
-        </div>
-      ))}
-
-      {/* HUD rodapé: zero-touch */}
-      <div className="absolute inset-x-0 bottom-0 flex justify-center p-3">
-        <div className="flex flex-col items-center rounded-2xl bg-black/60 px-5 py-3 backdrop-blur">
-          <span className="text-base font-bold tabular-nums text-white">00:01:14</span>
-          <span className="text-[11px] text-white/80">🔒 Zero-Touch ativo</span>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -250,7 +178,7 @@ export function MobileDemoPage() {
             <div className="mx-auto my-1.5 h-5 w-28 rounded-full bg-gray-800" />
             <div className="overflow-hidden rounded-[1.9rem] bg-black">
               <div className="relative">
-                {screen === 'driving' ? <DrivingScreen /> : <ParkedScreen />}
+                {screen === 'driving' ? <ActiveDrivingDemo /> : <ParkedScreen />}
               </div>
             </div>
             <div className="h-1.5" />
@@ -293,13 +221,20 @@ export function MobileDemoPage() {
               <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100">ActiveDriving — Zero-Touch</h4>
                 <p>
-                  A câmera traseira opera em modos <strong>IA Ativa</strong> (borda) + <strong>GPS</strong>. Detecções
-                  recebem bounding boxes com classe de anomalia e confiança:
+                  Câmera traseira emulada (<strong>IA Ativa</strong> na borda + <strong>GPS</strong>) sobre uma cena de rua
+                  mockada. Cenários rotativos exibem bounding boxes com classe e confiança da detecção:
                 </p>
                 <ul className="list-disc space-y-1 pl-5">
-                  <li>🟡 <strong>Buraco Profundo</strong> (89%) — infraestrutura de via</li>
+                  <li>🟨 <strong>Buraco Profundo</strong> (89%) — infraestrutura de via → aviso</li>
                   <li>⚪ <strong>Pedestre</strong> (78%) — alvo neutro (não gera alerta)</li>
+                  <li>🔴 <strong>Quase-acidente</strong> (94%) e <strong>Comportamento de Risco</strong> (81%) — alerta de
+                    proximidade crítico (háptico SOS + voz)</li>
                 </ul>
+                <p>
+                  🔊 Ative <strong>Voz on</strong> para ouvir o TTS pt-BR emulado (Web Speech API). Todos os cenários
+                  replicam os canais de <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">multimodalAlert.js</code>:
+                  háptico por severidade + mensagens de voz por classe, com throttle de 5s.
+                </p>
                 <p>
                   🔒 <strong>Zero-Touch:</strong> motorista não interage com o celular; detecções são registradas em
                   batch anonimizado (fingerprint criptográfico, sem dados pessoais).
