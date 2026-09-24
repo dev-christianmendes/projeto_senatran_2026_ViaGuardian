@@ -3,6 +3,18 @@
 > **Plataforma preditiva de segurança viária colaborativa para motociclistas.**
 > Desenvolvido submetido à categoria de **Projeto Acadêmico** do **Prêmio Senatran 2026**.
 
+## 🚀 Live Demo
+
+| Plataforma | URL |
+|---|---|
+| 🌐 Web Dashboard (CCO) | [https://viaguardian-demo.vercel.app](https://viaguardian-demo.vercel.app) |
+| 📱 Emulação do App Mobile | [https://viaguardian-demo.vercel.app/mobile](https://viaguardian-demo.vercel.app/mobile) |
+
+> **Modo demo:** a versão publicada roda com `VITE_DEMO_MODE=true`, retornando os mocks
+> instantaneamente **sem backend**. A rota `/mobile` emula as telas do app React Native
+> (AR de detecção + checkpoint gamificado) em um frame de celular.
+> O app mobile real continua rodando apenas em dispositivo físico (React Native).
+
 ## 🎯 Sobre o Projeto (Prêmio Senatran 2026)
 
 Este projeto nasce da necessidade urgente de reduzir a sinistralidade envolvendo motociclistas nos centros urbanos, o grupo mais vulnerável no trânsito brasileiro. O **ViaGuardian** propõe uma abordagem preventiva e orientada a dados.
@@ -69,6 +81,7 @@ Painel escuro para o Centro de Controle Operacional (CCO), com 3 telas principai
 | `/dashboard` | Painel de Controle CCO | KPIs, Heatmap, Donut, Tendência |
 | `/triage` | Triagem Operacional | Fila de incidentes + painel de decisão com ações |
 | `/cctv` | Monitoramento CFTV | Grid 6 câmeras + métricas YOLOv8 |
+| `/mobile` | Emulação Mobile (Demo) | Preview das telas React Native em frame de celular |
 
 ### Componentes principais
 
@@ -162,6 +175,12 @@ npm run build
 # Preview do build
 npm run preview
 ```
+
+### Modo demo (sem backend)
+
+Defina `VITE_DEMO_MODE=true` no ambiente para que os services retornem os mocks de
+`src/mocks/` instantaneamente, sem tentar conexão HTTP. Também habilita a rota `/mobile`
+(emulação das telas React Native). Veja `.env.example`.
 
 ---
 
