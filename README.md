@@ -1,546 +1,196 @@
-# ViaGuardian Intelligence Center 🏆
+# ViaGuardian Intelligence Center
 
-> **Plataforma preditiva de segurança viária colaborativa para motociclistas.**
-> Desenvolvido submetido à categoria de **Projeto Acadêmico** do **Prêmio Senatran 2026**.
+> Plataforma preditiva de segurança viária colaborativa para motociclistas — **protótipo acadêmico**.
+>
+> Submetido ao Prêmio Senatran 2026 — categoria Projeto Acadêmico (resultado ainda não divulgado).
 
-## 🚀 Live Demo
+**Demo:** <https://viaguardian-demo.vercel.app> (roda em **modo demo**, com dados mockados e sem backend) · Emulação do app: <https://viaguardian-demo.vercel.app/mobile>
 
-| Plataforma | URL |
+---
+
+## O problema
+
+Motociclistas são o grupo mais vulnerável no trânsito urbano brasileiro. Buracos, óleo na pista, obstruções e sinalização apagada costumam ser tratados de forma reativa, dependendo de chamados manuais (ex.: 156), e ficam expostos por muito tempo antes de qualquer manutenção.
+
+## A solução proposta
+
+Um ecossistema de *crowdsensing* em quatro partes:
+
+1. **App do motociclista** (React Native) que, no conceito, detecta anomalias na via com visão computacional no próprio aparelho e envia eventos georreferenciados anonimizados.
+2. **API de ingestão** (FastAPI + PostGIS) que recebe os eventos, **deduplica espacialmente** ocorrências próximas e calcula um Índice de Risco Viário (IRV).
+3. **Worker CFTV** que, no conceito, processaria câmeras públicas e usaria o mesmo contrato de ingestão.
+4. **Painel do Centro de Controle Operacional (CCO)** com KPIs, mapa de calor e triagem (aprovar/rejeitar) dos incidentes.
+
+> Este repositório é um **protótipo**: a parte geoespacial e o fluxo de ingestão/triagem são reais; a detecção por IA ainda é **simulada**. A tabela abaixo deixa isso explícito.
+
+---
+
+## Status real
+
+| Componente | Status | Evidência |
+|---|---|---|
+| API de ingestão (`POST /ingress/event`, `POST /ingress/batch`) | ✅ Implementado | `backend/app/routers/ingress.py` |
+| Deduplicação espacial com `ST_DWithin` (raio e janela configuráveis, padrão 12 m / 24 h) | ✅ Implementado | `backend/app/routers/ingress.py` (query de dedup), `backend/app/config.py` |
+| Coluna `Geometry` (PostGIS) com índice GIST | ✅ Implementado | `backend/app/models.py` (`ix_incidents_location_gist`) |
+| Cálculo do IRV `(Wa × D) + (Wh × S)` | ✅ Implementado | `backend/app/routers/ingress.py` (`calculate_irv`) |
+| Endpoints do painel (métricas, heatmap, fila de triagem, aprovar/rejeitar) | ✅ Implementado | `backend/app/routers/dashboard.py` |
+| Seed com coordenadas de vias de São Paulo | ✅ Implementado | `backend/scripts/seed_real_data.py` |
+| Dashboard web com mapa Leaflet, gráficos e triagem | ✅ Implementado | `src/components/dashboard/HeatmapPanel.jsx`, `src/components/triage/TriageTable.jsx` |
+| Modo demo (services retornam mocks sem chamar a API) | ✅ Implementado | `src/lib/demoMode.js`, `src/services/*.js`, `src/mocks/` |
+| GPS e máquina de estados DRIVING/PARKED no app | ✅ Implementado | `mobile/src/hooks/useGpsWatcher.js`, `mobile/src/store/telemetryStore.js` |
+| Anonimização do payload (hash SHA-256, `sanitizeBatch`) | ✅ Implementado | `mobile/src/utils/payloadBuilder.js` |
+| Detecção de anomalias no app (YOLOv8/TFLite) | 🟡 **Simulado** — detecções fixas na tela; o módulo TFLite gera resultados com `Math.random()` e não está conectado a nenhuma tela | `mobile/src/screens/ActiveDrivingScreen.jsx`, `mobile/src/utils/tfliteProcessor.js` |
+| Worker CFTV | 🟡 **Simulado** — inferência é um stub aleatório; sem câmera, gera frames sintéticos | `backend/worker_cftv.py` (`run_inference`, `run_simulation_loop`) |
+| Sincronização Infosiga SP | 🟡 **Simulado** — o parse da resposta não está implementado; os scores históricos são sorteados | `backend/app/services/infosiga_sync.py` (`_apply_simulated_scores`) |
+| Assistente de IA no painel | 🟡 **Simulado** — respostas pré-escritas por palavra-chave, sem modelo de linguagem | `src/components/ai/AiAgentWidget.jsx` (`KB`) |
+| Login / autenticação | 🔴 **Não implementado** — tela visual, sem autenticação; a API não exige credenciais | `src/pages/LoginPage.jsx`, `backend/app/routers/` |
+| Testes automatizados e CI | 🔴 **Não implementado** | — |
+
+---
+
+## Funcionalidades
+
+**Painel CCO (web)**
+
+- Rotas: `/` (dashboard), `/triagem`, `/cftv`, `/mobile` (emulação do app) e `/login` (protótipo visual) — `src/router/index.jsx`.
+- KPIs, gráfico de tendência e rosca de severidade (Recharts).
+- Mapa de calor e mini-mapa tático com Leaflet.
+- Triagem: o operador aprova ou rejeita um incidente pendente (`PATCH /triage/incidents/{id}/status`).
+- Quando a API não responde, os services usam os mocks como fallback (`src/services/dashboardService.js`, `src/services/triageService.js`).
+
+**Backend**
+
+- `GET /health`
+- `POST /ingress/event` e `POST /ingress/batch`: validação Pydantic, dedup espacial e atualização do IRV.
+- `GET /dashboard/metrics`, `GET /dashboard/heatmap`, `GET /triage/queue`, `PATCH /triage/incidents/{incident_id}/status`.
+- Job diário às 03:00 (APScheduler) que atualiza os scores históricos (hoje, com valores simulados).
+
+**App mobile (React Native)**
+
+- Transição automática DRIVING/PARKED pela velocidade do GPS.
+- Tela de condução com câmera e overlay de detecções (hoje, fixas).
+- Tela de estacionado com resumo da sessão e envio dos eventos para a API.
+- Alertas por vibração e voz (`mobile/src/utils/multimodalAlert.js`).
+
+---
+
+## Stack
+
+Versões conforme os manifestos do repositório.
+
+| Parte | Tecnologias |
 |---|---|
-| 🌐 Web Dashboard (CCO) | [https://viaguardian-demo.vercel.app](https://viaguardian-demo.vercel.app) |
-| 📱 Emulação do App Mobile | [https://viaguardian-demo.vercel.app/mobile](https://viaguardian-demo.vercel.app/mobile) |
-
-> **Modo demo:** a versão publicada roda com `VITE_DEMO_MODE=true`, retornando os mocks
-> instantaneamente **sem backend**. A rota `/mobile` emula as telas do app React Native
-> (AR de detecção + checkpoint gamificado) em um frame de celular.
-> O app mobile real continua rodando apenas em dispositivo físico (React Native).
-
-## 🎯 Sobre o Projeto (Prêmio Senatran 2026)
-
-Este projeto nasce da necessidade urgente de reduzir a sinistralidade envolvendo motociclistas nos centros urbanos, o grupo mais vulnerável no trânsito brasileiro. O **ViaGuardian** propõe uma abordagem preventiva e orientada a dados.
-
-* **O Porquê (Problema):** A zeladoria urbana muitas vezes atua de forma reativa e dependente de chamados manuais (ex: 156), deixando os motociclistas expostos a buracos, óleo na pista e sinalizações precárias por longos períodos, elevando os índices de acidentes severos.
-* **O Objetivo:** Criar um modelo de inteligência que antecipe áreas de risco e automatize a detecção de anomalias, garantindo que o Centro de Controle Operacional (CCO) direcione esforços de manutenção e alertas antes que os acidentes ocorram.
-* **O Como:** O ViaGuardian atua como um ecossistema colaborativo (crowdsensing) de **quatro camadas**.  Coleta dados anômalos em tempo real utilizando o smartphone do próprio motociclista (Edge AI) e integra-se a câmeras públicas CFTV. Esses dados são processados, validados e exibidos espacialmente em um **Painel de Inteligência Operacional** para uso da gestão pública e mitigação rápida de riscos.
+| Web (`package.json`) | React ^19.2.6, Vite ^8.0.12, Tailwind CSS ^3.4.17, React Router ^7.16, TanStack Query ^5.100, Recharts ^3.8.1, Leaflet ^1.9.4, react-leaflet ^5.0.0, Axios ^1.16 |
+| Backend (`backend/requirements.txt`) | Python 3.11 (`backend/Dockerfile`), FastAPI 0.115.6, Uvicorn 0.32.1, SQLAlchemy 2.0.36, GeoAlchemy2 0.15.2, asyncpg 0.30.0, Pydantic 2.10.3, pydantic-settings 2.6.1, httpx 0.28.1, APScheduler 3.10.4, opencv-python-headless 4.10.0.84 |
+| Banco (`backend/docker-compose.yml`) | PostgreSQL + PostGIS (`postgis/postgis:15-3.3`) |
+| Mobile (`mobile/package.json`) | React Native 0.75.3, react-native-vision-camera ^4.5.2, Zustand ^4.5.7, @react-native-community/geolocation ^3.4, react-native-tts ^4.1, react-native-haptic-feedback ^2.2, Axios ^1.7.2 |
+| Deploy da demo | Vercel (`vercel.json`) |
 
 ---
 
-## Arquitetura do Ecossistema
+## Arquitetura
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                          ViaGuardian Ecosystem                               │
-│                                                                              │
-│  ┌─────────────┐   ┌─────────────┐   ┌──────────────────────┐   ┌────────┐  │
-│  │ Mobile App  │──▶│ FastAPI +   │◀──│  Worker CFTV         │   │ React  │  │
-│  │ React Native│   │ PostGIS     │   │  (opencv · httpx)    │   │ Web    │  │
-│  │ YOLOv8-Nano │   │ (Docker)    │   │  RTSP → /ingress     │   │ (Vite) │  │
-│  └─────────────┘   └──────┬──────┘   └──────────────────────┘   └───┬────┘  │
-│   Edge AI / GPS           │  Dedup ST_DWithin                        │       │
-│                           │  + Sync Infosiga SP (APScheduler)        │       │
-│                           └──────────────────────────────────────────┘       │
-│                                     CCO Dashboard + Triagem                  │
-└──────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    M["App mobile<br/>React Native<br/>(detecção simulada)"] -->|POST /ingress/event| API
+    W["Worker CFTV<br/>(stub simulado)"] -->|POST /ingress/event| API
+    API["API FastAPI<br/>dedup ST_DWithin + IRV"] --> DB[("PostgreSQL + PostGIS<br/>índice GIST")]
+    S["Job diário Infosiga<br/>(scores simulados)"] -.-> API
+    DB --> API
+    API -->|/dashboard/* e /triage/*| D["Painel CCO<br/>React + Leaflet"]
+    MK["Mocks (modo demo)"] -.-> D
 ```
 
-### Fórmula IRV — Índice de Risco Viário
-
-```
-IRV = (Wa × D) + (Wh × S)
-```
-
-| Variável | Valor | Descrição |
-|---|---|---|
-| `Wa` | `0,6` | Peso de anomalia — volume de detecções validadas na borda |
-| `Wh` | `0,4` | Peso histórico — incidência de sinistros Infosiga SP |
-| `D` | `recurrence_count` | Deduplicação espacial PostGIS (raio 12m / janela 24h) |
-| `S` | `0–10` | Score histórico por classe (atualizado diariamente pelo sync noturno) |
+Organização do backend: `main.py` (app, CORS, scheduler, `/health`) → `app/routers/` (ingress, dashboard) → `app/models.py` / `app/schemas.py` → `app/database.py` (engine assíncrona) → `app/services/infosiga_sync.py`.
 
 ---
 
-## Sub-projetos
+## Como rodar
 
-| Pasta | Stack | Responsabilidade |
-|---|---|---|
-| `/` (raiz) | React 19 + Vite 8 + Tailwind v3 | Intelligence Center — painel operacional CCO |
-| `mobile/` | React Native 0.75 + Vision Camera v4 | App do motociclista — sensor de borda + AR |
-| `backend/` | FastAPI 0.115 + PostGIS 15-3.3 | API de ingestão + motor de deduplicação espacial |
-| `backend/worker_cftv.py` | Python + OpenCV + httpx | Worker autônomo de câmeras CFTV públicas |
-
----
-
-## 1 · Intelligence Center (Web Dashboard)
-
-Painel escuro para o Centro de Controle Operacional (CCO), com 3 telas principais.
-
-### Telas
-
-| Rota | Página | Conteúdo |
-|---|---|---|
-| `/` | Login | Autenticação (protótipo) |
-| `/dashboard` | Painel de Controle CCO | KPIs, Heatmap, Donut, Tendência |
-| `/triage` | Triagem Operacional | Fila de incidentes + painel de decisão com ações |
-| `/cctv` | Monitoramento CFTV | Grid 6 câmeras + métricas YOLOv8 |
-| `/mobile` | Emulação Mobile (Demo) | Preview das telas React Native em frame de celular |
-
-### Componentes principais
-
-```
-src/
-├── components/
-│   ├── ai/
-│   │   └── AiAgentWidget.jsx         # Widget flutuante de IA (chat + sugestões)
-│   ├── dashboard/
-│   │   ├── KpiCard.jsx               # Cards com fórmula IRV e accent ring
-│   │   ├── HeatmapPanel.jsx          # SVG heatmap preditivo (radialGradient)
-│   │   ├── SeverityDonutChart.jsx    # Rosca de distribuição por severidade
-│   │   └── IncidentTrendChart.jsx    # Gráfico de tendência semanal (Recharts)
-│   ├── cftv/
-│   │   └── CctvGrid.jsx              # Grid 6 câmeras: scanlines, REC, FPS, latência IA
-│   ├── triage/
-│   │   └── TriageTable.jsx           # Split 60/40: tabela + DetailPanel reativo
-│   └── layout/
-│       ├── AppShell.jsx              # Layout raiz + monta AiAgentWidget
-│       ├── Header.jsx
-│       └── Sidebar.jsx
-├── pages/
-│   ├── DashboardPage.jsx
-│   ├── TriagePage.jsx
-│   ├── CctvPage.jsx
-│   └── LoginPage.jsx
-├── hooks/
-│   ├── useDashboardQueries.js        # TanStack Query v5 → dashboardService
-│   └── useTriageQueries.js           # TanStack Query v5 → triageService
-├── services/
-│   ├── dashboardService.js           # GET /dashboard/metrics, /heatmap
-│   └── triageService.js              # GET /triage/queue, PATCH .../status
-├── mocks/
-│   └── mockData.js                   # Fallback offline completo
-└── lib/
-    └── http.js                       # Instância axios configurada
-```
-
-### Tela de Triagem — Fluxo de Atendimento
-
-A triagem é o núcleo operacional do CCO. O operador visualiza a fila de incidentes pendentes e
-toma uma decisão para cada item selecionado:
-
-```
-Incidente PENDENTE
-    ↓
-[Aprovar e Despachar O.S.] ──▶ status = APPROVED ──▶ Banner: "✅ O.S. Despachada (SP156)"
-[Rejeitar Falso Positivo]  ──▶ status = REJECTED ──▶ Banner: "🚫 Removido do cálculo IRV"
-```
-
-**Componentes do `DetailPanel`:**
-
-| Seção | Descrição |
-|---|---|
-| Header | ID do incidente + categoria + `StatusBadge` |
-| Mini-mapa tático | `MapContainer` Leaflet com círculo de deduplicação de 12m |
-| Validação Multi-Sensor | Número de sensores independentes que confirmaram a anomalia |
-| Análise Automática | Justificativa textual gerada pelo modelo |
-| Metadados | Coordenadas, IRV Score, barra de confiança |
-| **Área de ações** | Botões condicionais ao status (apenas para `Pendente`) |
-| **Banner de feedback** | Aparece instantaneamente após decisão, sem reload de página |
-
-**Reatividade local:** `handleDecision` no `TriageTableInner` atualiza `localQueue` e `selected`
-via `useState` imediatamente ao clicar, garantindo que o banner apareça antes mesmo da resposta da API.
-
-### Stack Web
-
-| Dependência | Versão | Uso |
-|---|---|---|
-| React | 19.2 | UI |
-| Vite | 8.0 | Build / dev server |
-| Tailwind CSS | 3.4 | Estilo (darkMode: 'class') |
-| React Leaflet | 4.x | Mini-mapa tático no DetailPanel |
-| Recharts | 3.8 | Gráficos (donut, linha) |
-| TanStack Query | 5.x | Data fetching + cache |
-| React Router | 7.x | SPA routing |
-| Axios | 1.x | HTTP client |
-
-### Comandos Web
+### Painel web
 
 ```bash
-# Instalar dependências
 npm install
-
-# Servidor de desenvolvimento (http://localhost:5173)
-npm run dev
-
-# Build de produção
-npm run build
-
-# Preview do build
-npm run preview
+npm run dev            # http://localhost:5173
 ```
 
-### Modo demo (sem backend)
+Sem backend, ative o modo demo (ver `.env.example`):
 
-Defina `VITE_DEMO_MODE=true` no ambiente para que os services retornem os mocks de
-`src/mocks/` instantaneamente, sem tentar conexão HTTP. Também habilita a rota `/mobile`
-(emulação das telas React Native). Veja `.env.example`.
-
----
-
-## 2 · Mobile Sensor App (React Native)
-
-App do motociclista que atua como sensor de borda com Edge AI embarcado.
-
-### Máquina de Estados (Zustand FSM)
-
-```
-PARKED ──(speed > 0.5 m/s)──▶ DRIVING
-          ◀──(speed ≤ 0.5)──
+```bash
+VITE_DEMO_MODE=true npm run dev
 ```
 
-- **DRIVING** → tela `ActiveDrivingScreen` (câmera AR + bounding boxes + HUD)
-- **PARKED** → tela `ParkedScreen` (resumo da sessão + upload do lote)
+Com backend, o painel usa `VITE_API_BASE_URL` (padrão `http://localhost:8000`, em `src/lib/http.js`).
 
-### Estrutura Mobile
+### Backend (API + PostGIS)
 
-```
-mobile/
-├── App.jsx                          # Root: permissões + FSM router
-└── src/
-    ├── screens/
-    │   ├── ActiveDrivingScreen.jsx  # VisionCamera + frame processor + AR overlay
-    │   └── ParkedScreen.jsx         # KPIs de sessão + upload batch + gamificação XP
-    ├── store/
-    │   └── telemetryStore.js        # Zustand FSM: DRIVING/PARKED + payloads
-    ├── hooks/
-    │   └── useGpsWatcher.js         # Geolocation.watchPosition → FSM transitions
-    └── utils/
-        ├── payloadBuilder.js        # LGPD: SHA-256 fingerprint + anonimização
-        └── multimodalAlert.js       # Haptic (long-short-short) + TTS pt-BR
+```bash
+cd backend
+docker-compose up --build
+# API:     http://localhost:8000
+# Swagger: http://localhost:8000/docs
 ```
 
-### Fluxo de Dados Mobile
+As tabelas são criadas no startup da API. Para popular o banco com dados de exemplo:
 
-```
-Frame Processor (worklet)
-  └──▶ runOnJS(handleDetection)
-        └──▶ telemetryStore.registerDetection()
-              ├── triggerAlert()  [haptic + TTS]
-              └── payloads[]  →  ParkedScreen  →  sanitizeBatch()  →  POST /ingress/batch
+```bash
+docker-compose exec api python scripts/seed_real_data.py
 ```
 
-### Stack Mobile
+### Worker CFTV (simulação)
 
-| Dependência | Versão | Uso |
-|---|---|---|
-| React Native | 0.75.3 | Framework mobile |
-| react-native-vision-camera | 4.5.2 | Camera + frame processors (worklets) |
-| Zustand | 4.5.4 | Estado global (FSM) |
-| TensorFlow.js | 4.21 | Edge AI (YOLOv8-Nano simulado) |
-| react-native-tts | 4.1 | Alertas de voz pt-BR |
-| react-native-haptic-feedback | 2.2 | Vibração multimodal |
-| Axios | 1.7 | Upload de lote ao backend |
-| expo-crypto | 13 | SHA-256 para device fingerprint (LGPD) |
+```bash
+cd backend
+python worker_cftv.py --simulate
+```
 
-### Comandos Mobile
+### App mobile
 
 ```bash
 cd mobile
-
-# Android
-npx react-native run-android
-
-# iOS
-npx react-native run-ios
-
-# Metro bundler
-npx react-native start
-```
-
----
-
-## 3 · Backend API (FastAPI + PostGIS)
-
-API assíncrona de ingestão de telemetria de borda, deduplicação espacial e fornecimento de
-métricas para o painel web. Inclui sincronização noturna automática com a base Infosiga SP.
-
-### Estrutura Backend
-
-```
-backend/
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-├── main.py                          # FastAPI app: lifespan, CORS, scheduler, routers, /health
-├── worker_cftv.py                   # Worker autônomo de câmeras CFTV (script independente)
-└── app/
-    ├── config.py                    # Pydantic Settings (.env)
-    ├── database.py                  # SQLAlchemy async engine + get_db + create_tables
-    ├── models.py                    # ORM: Incident, AnomalyClass enum, IncidentStatus enum
-    ├── schemas.py                   # Pydantic v2: IncidentPayload, TelemetryBatch, DashboardMetrics
-    ├── routers/
-    │   ├── ingress.py               # POST /ingress/event, POST /ingress/batch + cálculo IRV
-    │   └── dashboard.py             # GET /dashboard/metrics, /heatmap, /triage/queue, PATCH status
-    └── services/
-        └── infosiga_sync.py         # Sincronização noturna de scores históricos (Infosiga SP)
-```
-
-### Motor de Deduplicação Espacial
-
-Para cada payload recebido, o backend executa uma query PostGIS antes de inserir:
-
-```sql
-SELECT id FROM incidents
-WHERE anomaly_class = :class
-  AND event_timestamp_utc >= NOW() - INTERVAL '24 hours'
-  AND ST_DWithin(
-        location::geography,
-        ST_GeomFromText('POINT(:lon :lat)', 4326)::geography,
-        12.0  -- metros
-      )
-LIMIT 1
-```
-
-- **Encontrou** → `UPDATE recurrence_count += 1` (IRV recalculado)
-- **Não encontrou** → `INSERT` novo incidente
-
-O índice GIST na coluna `location` garante busca O(log n) via R-Tree.
-
-### Sincronização Noturna — Infosiga SP
-
-O scheduler APScheduler roda **todos os dias às 03:00 (America/Sao_Paulo)** dentro do lifespan
-do FastAPI e atualiza os pesos do `HISTORICAL_SCORE_BY_CLASS` em memória:
-
-```
-lifespan startup
-  └──▶ AsyncIOScheduler.start()
-         └──▶ CronTrigger(hour=3, minute=0)
-               └──▶ sync_infosiga_data()
-                     ├── httpx.get(https://api.infosiga.sp.gov.br/v1/acidentes/mensal)
-                     │     ✓ Sucesso → parse + atualiza HISTORICAL_SCORE_BY_CLASS
-                     │     ✗ Falha   → fallback: pesos aleatórios [4.0 – 9.5]
-                     └── log de cada classe atualizada
-```
-
-O dicionário é mutado **in-place**, então `calculate_irv()` em `ingress.py` reflete os novos
-pesos imediatamente, sem necessidade de reinicialização da API.
-
-### Endpoints
-
-| Método | Rota | Descrição |
-|---|---|---|
-| `GET` | `/health` | Health check (Docker + load balancer) |
-| `POST` | `/ingress/event` | Recebe evento único do sensor de borda ou worker CFTV |
-| `POST` | `/ingress/batch` | Recebe lote ao fim da sessão de condução (Mobile) |
-| `GET` | `/dashboard/metrics` | KPIs agregados (IRV, incidents_today, trend…) |
-| `GET` | `/dashboard/heatmap` | Pontos georreferenciados para heatmap |
-| `GET` | `/triage/queue` | Fila de incidentes pendentes (ordem IRV desc) |
-| `PATCH` | `/triage/incidents/{id}/status` | Aprovar (`approved`) ou rejeitar (`rejected`) incidente |
-
-### Variáveis de Ambiente
-
-Crie `backend/.env` com:
-
-```env
-DATABASE_URL=postgresql+asyncpg://viaguardian:viaguardian@db:5432/viaguardian
-API_SECRET_KEY=troque-em-producao
-CORS_ORIGINS=http://localhost:5173,http://localhost:4173
-DB_ECHO=false
-DEDUP_RADIUS_METERS=12.0
-DEDUP_WINDOW_HOURS=24
-MIN_CONFIDENCE_SCORE=0.50
-```
-
-### Stack Backend
-
-| Dependência | Versão | Uso |
-|---|---|---|
-| FastAPI | 0.115.6 | Framework HTTP assíncrono |
-| Uvicorn | 0.32.1 | ASGI server |
-| SQLAlchemy | 2.0.36 | ORM async |
-| GeoAlchemy2 | 0.15.2 | Tipos PostGIS (GEOMETRY, ST_DWithin…) |
-| asyncpg | 0.30.0 | Driver assíncrono PostgreSQL |
-| Alembic | 1.14.0 | Migrações de banco |
-| Pydantic | 2.10.3 | Validação de schemas |
-| httpx | 0.28.1 | Cliente HTTP assíncrono (sync Infosiga + worker CFTV) |
-| APScheduler | 3.10.4 | Agendamento do job noturno de sincronização |
-| opencv-python-headless | 4.10.0.84 | Captura de frames RTSP no worker CFTV |
-| PostGIS | 15-3.3 | Extensão espacial (SRID 4326 / WGS-84) |
-
-### Comandos Backend
-
-```bash
-cd backend
-
-# Subir banco PostGIS + API com hot-reload
-docker-compose up --build
-
-# Apenas o banco (para desenvolvimento local da API)
-docker-compose up db
-
-# Rodar API localmente (requer .env configurado)
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-# Documentação interativa (Swagger)
-# http://localhost:8000/docs
-
-# Criar nova migração Alembic
-docker-compose exec api alembic revision --autogenerate -m "descricao"
-
-# Aplicar migrações
-docker-compose exec api alembic upgrade head
-```
-
----
-
-## 4 · Worker CFTV (Script Autônomo)
-
-Worker Python independente que processa streams de vídeo RTSP de câmeras públicas (CFTV) e
-alimenta a API ViaGuardian usando o mesmo endpoint do App Mobile.
-
-### Arquitetura do Worker
-
-```
-cv2.VideoCapture(RTSP_URL)
-        │
-        ▼ (a cada INFERENCE_INTERVAL frames)
-  run_inference(frame)          ← YOLOv8-Nano stub (produção: model(frame))
-        │
-        ▼ (se anomalia detectada)
-  httpx.post(/ingress/event)    ← mesmo contrato IncidentPayload do Mobile
-        │
-        ▼
-  log colorido ANSI + resposta da API (incident_id, action)
-```
-
-**Fallback MVP:** se o stream RTSP estiver inacessível, o worker entra em modo de simulação
-automático, gerando frames sintéticos (ruído gaussiano) a cada `2s`.
-
-### Device Fingerprint das Câmeras
-
-O campo `device_fingerprint` (SHA-256, 64 chars) é gerado deterministicamente a partir do ID da
-câmera, satisfazendo o validator `^[0-9a-f]{64}$` do `IncidentPayload`:
-
-```python
-fingerprint = hashlib.sha256("CFTV-CAM-001".encode()).hexdigest()
-```
-
-### Localização Monitorada (Padrão)
-
-| Campo | Valor | Ponto de referência |
-|---|---|---|
-| `lat` | `-23.5614` | Avenida Paulista × Rua Augusta |
-| `lon` | `-46.6562` | São Paulo — SP |
-
-### Logs Coloridos
-
-| Cor | Evento |
-|---|---|
-| 🔵 Ciano | `[FRAME #NNNNN]` — frame processado |
-| 🟡 Amarelo | `⚠ [ANOMALIA DETECTADA]` — classe + confiança |
-| 🟢 Verde | `✓ [PAYLOAD ENVIADO À API CENTRAL]` — action + incident_id |
-| 🔴 Vermelho | `✕ [ERRO NA INTEGRAÇÃO]` — status HTTP + detalhe |
-
-### Classes Detectáveis pela Câmera CFTV
-
-| Classe | Descrição |
-|---|---|
-| `obstruction` | Veículo parado / objeto na via |
-| `pothole` | Buraco identificável em ângulo zenital |
-| `near_miss` | Quase-colisão detectada por fluxo óptico |
-| `risk_behavior` | Fechada / avanço de sinal |
-
-### Comandos do Worker
-
-```bash
-cd backend
-
-# Instalar dependências do worker
-pip install opencv-python-headless==4.10.0.84 httpx==0.28.1
-
-# Modo simulação (sem câmera real — recomendado para desenvolvimento)
-python worker_cftv.py --simulate
-
-# Modo RTSP (com fallback automático para simulação se RTSP falhar)
-python worker_cftv.py --rtsp-url rtsp://cam.cetsp.gov.br/live/cam_paulista_001
-
-# Câmera customizada, apontando para outra instância da API
-python worker_cftv.py --simulate --cam-id CFTV-CAM-005 --api-url http://localhost:8000/ingress/event
-
-# Ver todas as opções
-python worker_cftv.py --help
-```
-
----
-
-## Classes de Anomalia
-
-| Classe | Score Histórico Base | Descrição |
-|---|---|---|
-| `near_miss` | 9.5 | Quase-acidentes com outros veículos |
-| `risk_behavior` | 8.0 | Comportamentos de risco (ultrapassagem, velocidade) |
-| `obstruction` | 6.0 | Obstruções de via |
-| `pothole` | 5.5 | Buracos e depressões no asfalto |
-| `faded_lane` | 4.0 | Sinalização horizontal apagada |
-
-> **Nota:** Os scores históricos são atualizados automaticamente às **03:00** pelo job de
-> sincronização com o Infosiga SP (`infosiga_sync.py`). Os valores acima são os scores base
-> iniciais definidos em `ingress.py`.
-
----
-
-## Privacidade e LGPD
-
-- **Sem dados pessoais**: o App Mobile nunca coleta nome, CPF ou identificadores diretos.
-- **Device fingerprint**: hash SHA-256 one-way de metadados não-sensíveis do dispositivo
-  (SO + versão + salt da app). Irreversível. Aplicado também às câmeras CFTV (`cam_id → SHA-256`).
-- **Coordenadas**: truncadas em 6 casas decimais (~11 cm de precisão). Bounding boxes ficam no
-  campo `_bbox` — removidas antes do upload pelo `sanitizeBatch()`.
-- **Câmeras CFTV**: imagens **nunca** são armazenadas. O worker processa o frame em memória e
-  descarta imediatamente após a inferência. Apenas metadados do evento são enviados à API.
-- **Transmissão**: HTTPS obrigatório em produção. Lote cifrado em trânsito.
-
----
-
-## Inicialização Completa
-
-```bash
-# 1. Clonar o repositório
-git clone <url> viaguardian-intelligence-center
-cd viaguardian-intelligence-center
-
-# 2. Web Dashboard
 npm install
-npm run dev          # http://localhost:5173
-
-# 3. Backend (em outro terminal)
-cd backend
-cp .env.example .env  # ajustar variáveis
-docker-compose up --build
-# API:      http://localhost:8000
-# Swagger:  http://localhost:8000/docs
-# ReDoc:    http://localhost:8000/redoc
-
-# 4. Worker CFTV (em outro terminal — requer API rodando)
-cd backend
-python worker_cftv.py --simulate
-
-# 5. Mobile (em outro terminal)
-cd mobile
-npm install
-npx react-native run-android
+npm run android        # ou: npm run ios
 ```
 
+> O app envia eventos para uma URL fixa em `mobile/src/screens/ParkedScreen.jsx` (`API_BASE_URL`); ajuste para o endereço da sua API antes de testar o envio.
+
 ---
+
+## Demo
+
+<https://viaguardian-demo.vercel.app> roda com `VITE_DEMO_MODE=true`: todos os números, incidentes e câmeras vêm de `src/mocks/` e **nenhuma chamada é feita à API**. A rota `/mobile` emula as telas do app em um frame de celular, incluindo uma cena de rua em SVG com 7 cenários rotativos (pedestre, buraco, quase-acidente etc.) e alertas por vibração e voz (Web Speech API) — tudo roteirizado, sem detecção real (`src/components/mobile/ActiveDrivingDemo.jsx`).
+
+---
+
+## Limitações conhecidas
+
+- **IA de detecção não está implementada**: as detecções do app e do worker CFTV são simuladas; não há modelo treinado no repositório.
+- Os scores históricos do IRV são sorteados (`infosiga_sync.py`), então o IRV não reflete dados reais de sinistros.
+- **Sem autenticação** no painel e na API (`API_SECRET_KEY` existe em `backend/app/config.py`, mas não é usado).
+- **Sem testes automatizados e sem CI.**
+- Sem migrações versionadas: o schema é criado por `create_tables()` no startup (`backend/main.py`).
+- O assistente de IA do painel usa respostas pré-escritas.
+- A URL da API no app mobile está fixa no código.
+- Credenciais do banco no `docker-compose.yml` são apenas de desenvolvimento local.
 
 ## Roadmap
 
-| Status | Funcionalidade |
-|---|---|
-| ✅ | Motor de deduplicação espacial PostGIS (ST_DWithin 12m / 24h) |
-| ✅ | Cálculo e normalização do IRV (0–100) |
-| ✅ | Triagem operacional com decisão Aprovar / Rejeitar e feedback reativo |
-| ✅ | Sincronização noturna com Infosiga SP (APScheduler + fallback simulado) |
-| ✅ | Worker autônomo de câmeras CFTV (RTSP + fallback simulação) |
-| 🔜 | Autenticação JWT para operadores do CCO |
-| 🔜 | Parse real da API REST Infosiga SP (quando disponível) |
-| 🔜 | Integração SP156 para despacho de O.S. de zeladoria |
-| 🔜 | Modelo YOLOv8-Nano embarcado no worker CFTV (substituir stub) |
-| 🔜 | Alertas push para operadores (WebSocket / SSE) |
+- [ ] Rodar um modelo real de detecção (TFLite/TF.js) sobre frames de exemplo e conectar ao app.
+- [ ] Testes do backend (pytest + PostGIS em contêiner) e pipeline de CI.
+- [ ] Autenticação dos operadores do CCO (ou remover a tela de login).
+- [ ] Parse real dos dados do Infosiga SP.
+- [ ] URL da API configurável no app mobile.
+- [ ] Integração SP156 para despacho de ordens de serviço.
+- [ ] Alertas em tempo real para operadores (WebSocket/SSE).
+
+---
+
+## Privacidade (LGPD) — o que o código faz hoje
+
+- O payload do app usa um `device_fingerprint` com hash SHA-256 e remove as bounding boxes antes do envio (`mobile/src/utils/payloadBuilder.js`).
+- O worker CFTV gera o fingerprint da câmera por SHA-256 do ID (`backend/worker_cftv.py`).
+- Nenhuma imagem é enviada à API: o contrato de ingestão (`backend/app/schemas.py`) só recebe metadados do evento.
+
+## Autor
+
+Christian Mendes — [@dev-christianmendes](https://github.com/dev-christianmendes)
